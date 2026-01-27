@@ -6,6 +6,12 @@ const STATIC_CREDENTIALS = {
   password: "admin123",
 };
 
+const ValidationIndicator = ({ isValid, text }) => (
+  <div className="flex items-center gap-2 text-xs">
+    <span className={`w-3 h-3 rounded-full ${isValid ? "bg-green-500" : "bg-gray-300"} inline-block`} />
+    <span className={isValid ? "text-green-700" : "text-gray-500"}>{text}</span>
+  </div>
+);
 export default function Loginpage({ onLoginSuccess })  {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -13,6 +19,12 @@ export default function Loginpage({ onLoginSuccess })  {
   const [loginErrors, setLoginErrors] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
+  const [loginPasswordValidations, setLoginPasswordValidations] = useState({
+  minLength: false,
+  hasUpperCase: false,
+  hasLowerCase: false,
+  hasNumber: false,
+});
 
   // Register state
   const [showRegister, setShowRegister] = useState(false);
@@ -26,6 +38,12 @@ export default function Loginpage({ onLoginSuccess })  {
   const validateEmail = (email) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+  const validatePasswordRules = (password) => ({
+  minLength: password.length >= 8,
+  hasUpperCase: /[A-Z]/.test(password),
+  hasLowerCase: /[a-z]/.test(password),
+  hasNumber: /[0-9]/.test(password),
+});
   // Login handler
   const handleLogin = async (e) => {
   e.preventDefault();
@@ -35,7 +53,7 @@ export default function Loginpage({ onLoginSuccess })  {
   else if (!validateEmail(loginEmail))
     errors.email = "Enter a valid email address";
   if (!loginPassword) errors.password = "Password is required";
-  else if (loginPassword.length < 6)
+  else if (loginPassword.length < 6 || !loginPasswordValidations.minLength || !loginPasswordValidations.hasUpperCase || !loginPasswordValidations.hasLowerCase || !loginPasswordValidations.hasNumber)
     errors.password = "Password must be at least 6 characters";
 
   if (errors.email || errors.password) {
@@ -171,19 +189,22 @@ export default function Loginpage({ onLoginSuccess })  {
             <div>
               <label className="block text-sm font-bold text-stone-700 mb-1 tracking-wide">PASSWORD</label>
               <div className="relative">
-                <input
-                  type={showLoginPassword ? "text" : "password"}
-                  className={`w-full px-4 py-3 rounded-lg border-2 bg-white text-stone-800 placeholder-stone-400 focus:outline-none transition-all duration-300
-                    ${loginErrors.password 
-                      ? "border-red-400 focus:border-red-500" 
-                      : "border-stone-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-                    }`}
-                  placeholder="Enter your password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
+                  <input
+                    type={showLoginPassword ? "text" : "password"}
+                    className={`w-full px-4 py-3 rounded-lg border-2 bg-white text-stone-800 placeholder-stone-400 focus:outline-none transition-all duration-300
+                                      ${loginErrors.password 
+                                        ? "border-red-400 focus:border-red-500" 
+                                        : "border-stone-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                                      }`}
+                    placeholder="Enter your password"
+                    value={loginPassword}
+                    onChange={(e) => {
+                      setLoginPassword(e.target.value);
+                      setLoginPasswordValidations(validatePasswordRules(e.target.value));
+                    }}
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
                 <button
                   type="button"
                   className="absolute right-3 top-1/2 text-stone-400 hover:text-emerald-600 transition-colors"
@@ -202,6 +223,15 @@ export default function Loginpage({ onLoginSuccess })  {
                   )}
                 </button>
               </div>
+                {loginPassword && (
+                   <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-1">
+                     <p className="text-xs font-semibold text-gray-700 mb-2">Password must contain:</p>
+                     <ValidationIndicator isValid={loginPasswordValidations.minLength} text="At least 8 characters" />
+                     <ValidationIndicator isValid={loginPasswordValidations.hasUpperCase} text="One uppercase letter" />
+                     <ValidationIndicator isValid={loginPasswordValidations.hasLowerCase} text="One lowercase letter" />
+                     <ValidationIndicator isValid={loginPasswordValidations.hasNumber} text="One number" />
+                   </div>
+                 )}
               {loginErrors.password && (
                 <p className="text-red-500 text-xs mt-1 font-medium flex items-center">
                    <span>• {loginErrors.password}</span>

@@ -9,6 +9,12 @@ import {
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^[6-9]\d{9}$/;
 
+const ValidationIndicator = ({ isValid, text }) => (
+  <div className="flex items-center gap-2 text-xs">
+    <span className={`w-3 h-3 rounded-full ${isValid ? "bg-green-500" : "bg-gray-300"} inline-block`} />
+    <span className={isValid ? "text-green-700" : "text-gray-500"}>{text}</span>
+  </div>
+);
 const AddAdmin = () => {
   const [admins, setAdmins] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -16,6 +22,13 @@ const AddAdmin = () => {
   const [form, setForm] = useState({ email: "", password: "", phoneNumber: "" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [passwordValidations, setPasswordValidations] = useState({
+  minLength: false,
+  hasUpperCase: false,
+  hasLowerCase: false,
+  hasNumber: false,
+  hasSpecialChar: false,
+});
   
   // New State for Search & Filter
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,6 +62,13 @@ const AddAdmin = () => {
     // eslint-disable-next-line
   }, [page, pageSize]);
 
+  const validatePasswordRules = (password) => ({
+  minLength: password.length >= 8,
+  hasUpperCase: /[A-Z]/.test(password),
+  hasLowerCase: /[a-z]/.test(password),
+  hasNumber: /[0-9]/.test(password),
+  hasSpecialChar: /[!@#$%^&*]/.test(password),
+});
   // Form validation logic
   const validate = () => {
     const errs = {};
@@ -56,7 +76,9 @@ const AddAdmin = () => {
     else if (!emailRegex.test(form.email)) errs.email = "Invalid email format";
     
     if (!form.password) errs.password = "Password is required";
-    else if (form.password.length < 6) errs.password = "Password must be at least 6 characters";
+    else if ( form.password.length < 6 || !passwordValidations.minLength || !passwordValidations.hasUpperCase || !passwordValidations.hasLowerCase || !passwordValidations.hasNumber || !passwordValidations.hasSpecialChar) {
+      errs.password = "Password does not meet requirements";
+    }
     
     if (!form.phoneNumber) errs.phoneNumber = "Phone number is required";
     else if (!phoneRegex.test(form.phoneNumber)) errs.phoneNumber = "Invalid phone number";
@@ -91,6 +113,7 @@ const AddAdmin = () => {
                           statusFilter === "Active" ? true : false; 
     return matchesSearch && matchesStatus;
   });
+
 
   return (
     <div className="min-h-screen bg-emerald-50/60 p-6 font-sans">
@@ -314,17 +337,31 @@ const AddAdmin = () => {
                     </label>
                     <div className="relative group">
                       <Lock className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-emerald-600 transition-colors" size={18} />
-                      <input
-                        type="password"
-                        placeholder="••••••••"
-                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl text-sm font-medium outline-none transition-all duration-200 focus:bg-white focus:ring-2 ${
-                          errors.password 
-                            ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" 
-                            : "border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
-                        }`}
-                        value={form.password}
-                        onChange={e => setForm({ ...form, password: e.target.value })}
-                      />
+                       <input
+                         type="password"
+                         placeholder="••••••••"
+                         className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl text-sm font-medium outline-none transition-all duration-200 focus:bg-white focus:ring-2 ${
+                           errors.password 
+                             ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" 
+                             : "border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                         }`}
+                         value={form.password}
+                         onChange={e => {
+                           const value = e.target.value;
+                           setForm({ ...form, password: value });
+                           setPasswordValidations(validatePasswordRules(value));
+                         }}
+                       />
+                       {form.password && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-1">
+                            <p className="text-xs font-semibold text-gray-700 mb-2">Password must contain:</p>
+                            <ValidationIndicator isValid={passwordValidations.minLength} text="At least 8 characters" />
+                            <ValidationIndicator isValid={passwordValidations.hasUpperCase} text="One uppercase letter" />
+                            <ValidationIndicator isValid={passwordValidations.hasLowerCase} text="One lowercase letter" />
+                            <ValidationIndicator isValid={passwordValidations.hasNumber} text="One number" />
+                            <ValidationIndicator isValid={passwordValidations.hasSpecialChar} text="One special character (!@#$%^&*)" />
+                          </div>
+                        )}
                     </div>
                     {errors.password && <p className="text-xs text-red-500 font-medium ml-1 animate-pulse">{errors.password}</p>}
                   </div>
