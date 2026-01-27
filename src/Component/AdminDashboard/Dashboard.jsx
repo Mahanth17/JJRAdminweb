@@ -16,7 +16,7 @@ import {
 } from "recharts";
 import { categoryApi, orderApi, rootApi } from "../../../axiosInstance";
 
-// --- EXISTING DATA (UNCHANGED) ---
+// --- MOVED STATIC DATA OUTSIDE COMPONENT (Prevents Re-renders) ---
 const allCustomers = [
   { name: "Amit Sharma", orders: 12, spent: "₹15,000" },
   { name: "Priya Singh", orders: 9, spent: "₹11,200" },
@@ -24,7 +24,6 @@ const allCustomers = [
   { name: "Sneha Patel", orders: 7, spent: "₹8,400" },
 ];
 
-// --- EXISTING CHART DATA ---
 const yearlyData = [
   { year: "2021", sales: 850000, orders: 1200 },
   { year: "2022", sales: 1100000, orders: 1500 },
@@ -32,16 +31,6 @@ const yearlyData = [
   { year: "2024", sales: 1250000, orders: 1800 },
 ];
 
-const quantityData = [
-  { name: "Vegetables", value: 450 },
-  { name: "Fruits", value: 300 },
-  { name: "Dry Fruits", value: 150 },
-  { name: "Dairy", value: 100 },
-];
-
-
-
-// --- NEW DATA FOR MULTI-LINE CHART ---
 const yearlyCategoryTrendData = [
   { year: "2021", Vegetables: 250000, Fruits: 180000, DryFruits: 120000, Dairy: 80000 },
   { year: "2022", Vegetables: 320000, Fruits: 240000, DryFruits: 150000, Dairy: 100000 },
@@ -64,15 +53,26 @@ const monthOptions = [
   { value: 11, label: "November" },
   { value: 12, label: "December" },
 ];
+
+const pieCategories = [
+  { id: 1, name: "Spices" },
+  { id: 2, name: "Dry Fruits" },
+  { id: 3, name: "Food oils" },
+  { id: 4, name: "Rice types" },
+  { id: 5, name: "Veg Pickles" },
+  { id: 6, name: "Non-veg Pickles" },
+];
+
 const Dashboard = () => {
   const getTodayDate = () => {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
-};
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  };
+  
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
- 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [categoryMonthlyData, setCategoryMonthlyData] = useState([]);
+  
   // --- State for Year Range ---
   const [startYear, setStartYear] = useState("2021");
   const [endYear, setEndYear] = useState("2024");
@@ -92,7 +92,7 @@ const Dashboard = () => {
   
   const [selectedMonthBar, setSelectedMonthBar] = useState(new Date().getMonth() + 1);
   const [selectedYearBar, setSelectedYearBar] = useState(new Date().getFullYear());
-  const yearOptions = ["2021", "2022", "2023", "2024", "2025", "2026"];
+  
   const [branchPage] = useState(1);
   const [branchPageSize] = useState(5);
   const [branchTotal, setBranchTotal] = useState(0);
@@ -103,17 +103,9 @@ const Dashboard = () => {
   const [productTotal, setProductTotal] = useState(0);
   const [products, setProducts] = useState([]);
   const [quantityData, setQuantityData] = useState([]);
-  const [categoryPageSize] = useState(1000);
-  const pieCategories = [
-  { id: 1, name: "Spices" },
-  { id: 2, name: "Dry Fruits" },
-  { id: 3, name: "Food oils" },
-  { id: 4, name: "Rice types" },
-  { id: 5, name: "Veg Pickles" },
-  { id: 6, name: "Non-veg Pickles" },
-];
+  const [categoryPageSize] = useState(1);
 
-    const [tpStartDate, setTpStartDate] = useState(() => {
+  const [tpStartDate, setTpStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
     return d.toISOString().slice(0, 10);
@@ -121,13 +113,16 @@ const Dashboard = () => {
   const [tpEndDate, setTpEndDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const getCurrentMonth = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-};
-const [monthlyStats, setMonthlyStats] = useState({ totalOrders: 0, totalRevenue: 0 });
-const currentMonth = getCurrentMonth();
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+  const [monthlyStats, setMonthlyStats] = useState({ totalOrders: 0, totalRevenue: 0 });
+  
+  // Calculate this once per render
+  const currentMonth = getCurrentMonth();
 
-useEffect(() => {
+  // 1. Top Products
+  useEffect(() => {
     (async () => {
       try {
         const res = await orderApi.get(`/api/orders/admin/topproducts?startDate=${tpStartDate}&endDate=${tpEndDate}`);
@@ -139,91 +134,103 @@ useEffect(() => {
     })();
   }, [tpStartDate, tpEndDate]);
 
-useEffect(() => {
-  const fetchCategoryCounts = async () => {
-    try {
-      const results = await Promise.all(
-        pieCategories.map(async (cat) => {
-          // Always fetch first page for pie chart (or allow page selection if needed)
-          const res = await categoryApi.get(
-            `/api/products/byCategory?categoryId=${cat.id}&page=0&size=${categoryPageSize}`
-          );
-          // If backend returns paginated format: { content, totalElements }
-          return {
-            name: cat.name,
-            value: res.data.totalElements || (res.data.content ? res.data.content.length : (res.data || []).length)
-          };
-        })
-      );
-      setQuantityData(results);
-    } catch {
-      setQuantityData([]);
-    }
-  };
-  fetchCategoryCounts();
-}, [categoryPageSize, pieCategories]);
-  // Fetch all orders
-useEffect(() => {
-  (async () => {
-    try {
-      const res = await orderApi.get(`/api/orders/admin/date?date=${selectedDate}`);
-      const sortedOrders = (res.data || []).slice().sort((a, b) => a.id - b.id);
-      setRecentOrders(sortedOrders);
-      setOrdersPage(1);
-    } catch {
-      setRecentOrders([]);
-    }
-  })();
-}, [selectedDate]);
-
-  // Pagination helpers
-  const paginate = (arr, page, perPage = 5) => arr.slice((page - 1) * perPage, page * perPage);
-useEffect(() => {
-  orderApi
-    .get(`/api/orders/admin/monthly/count?month=${currentMonth}`)
-    .then(res => {
-      setMonthlyStats({
-        totalOrders: res.data.totalOrders || 0,
-        totalRevenue: res.data.totalRevenue || 0,
-      });
-    })
-    .catch(() => {
-      setMonthlyStats({ totalOrders: 0, totalRevenue: 0 });
-    });
-}, [currentMonth]);
-
-useEffect(() => {
-  (async () => {
-    try {
-      const monthNames = [
-        "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
-        "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"
-      ];
-      const selectedMonthName = monthNames[selectedMonthBar - 1];
-      const res = await orderApi.get(`/api/orders/admin/monthly/count?month=${selectedMonthName}&year=${selectedYearBar}`);
-      const monthMap = {
-        JANUARY: "Jan", FEBRUARY: "Feb", MARCH: "Mar", APRIL: "Apr",
-        MAY: "May", JUNE: "Jun", JULY: "Jul", AUGUST: "Aug",
-        SEPTEMBER: "Sep", OCTOBER: "Oct", NOVEMBER: "Nov", DECEMBER: "Dec"
-      };
-      const data = res.data
-        ? [{
-            name: monthMap[res.data.month?.toUpperCase()] || res.data.month,
-            totalRevenue: res.data.totalRevenue || 0
-          }]
-        : [];
-      setMonthlyData(data);
-    } catch {
-      setMonthlyData([]);
-    }
-  })();
-}, [selectedMonthBar, selectedYearBar]);
+  // 2. Category Counts (Pie Chart)
   useEffect(() => {
-    // Fetch monthly category revenue when month changes
+    const fetchCategoryCounts = async () => {
+      try {
+        const results = await Promise.all(
+          pieCategories.map(async (cat) => {
+            const res = await categoryApi.get(
+              `/api/products/byCategory?categoryId=${cat.id}&page=0&size=${categoryPageSize}`
+            );
+            return {
+              name: cat.name,
+              value: res.data.totalElements || (res.data.content ? res.data.content.length : (res.data || []).length)
+            };
+          })
+        );
+        setQuantityData(results);
+      } catch {
+        setQuantityData([]);
+      }
+    };
+    fetchCategoryCounts();
+  }, [categoryPageSize]);
+
+  // 3. MERGED EFFECT: Recent Orders & Daily Stats (Prevents Double Hit)
+  useEffect(() => {
+    if (!selectedDate) return;
     (async () => {
       try {
-        const res = await categoryApi.get(`/api/category/admin/revenue/category-monthly?month=${selectedMonth}`);
-        // Transform API data to match recharts format
+        const res = await orderApi.get(`/api/orders/admin/date?date=${selectedDate}`);
+        
+        // Logic for Recent Orders List
+        const sortedOrders = (res.data || []).slice().sort((a, b) => a.id - b.id);
+        setRecentOrders(sortedOrders);
+        setOrdersPage(1);
+
+        // Logic for Daily Stats Cards (Count & Revenue)
+        setOrderCount(res.data.length || 0);
+        const sale = res.data.reduce((sum, prod) => sum + (prod.orderAmount || 0), 0);
+        setRevenue(sale);
+
+      } catch {
+        setRecentOrders([]);
+        setOrderCount(0);
+        setRevenue(0);
+      }
+    })();
+  }, [selectedDate]);
+
+  // 4. Monthly Stats
+  useEffect(() => {
+    orderApi
+      .get(`/api/orders/admin/monthly/count?month=${currentMonth}`)
+      .then(res => {
+        setMonthlyStats({
+          totalOrders: res.data.totalOrders || 0,
+          totalRevenue: res.data.totalRevenue || 0,
+        });
+      })
+      .catch(() => {
+        setMonthlyStats({ totalOrders: 0, totalRevenue: 0 });
+      });
+  }, [currentMonth]);
+
+  // 5. Monthly Bar Chart
+  useEffect(() => {
+    (async () => {
+      try {
+        const monthNames = [
+          "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+          "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"
+        ];
+        const selectedMonthName = monthNames[selectedMonthBar - 1];
+        const res = await orderApi.get(`/api/orders/admin/monthly/count?month=${selectedMonthName}&year=${selectedYearBar}`);
+        const monthMap = {
+          JANUARY: "Jan", FEBRUARY: "Feb", MARCH: "Mar", APRIL: "Apr",
+          MAY: "May", JUNE: "Jun", JULY: "Jul", AUGUST: "Aug",
+          SEPTEMBER: "Sep", OCTOBER: "Oct", NOVEMBER: "Nov", DECEMBER: "Dec"
+        };
+        const data = res.data
+          ? [{
+              name: monthMap[res.data.month?.toUpperCase()] || res.data.month,
+              totalRevenue: res.data.totalRevenue || 0
+            }]
+          : [];
+        setMonthlyData(data);
+      } catch {
+        setMonthlyData([]);
+      }
+    })();
+  }, [selectedMonthBar, selectedYearBar]);
+
+  // 6. Category Monthly Revenue (Line Chart)
+  useEffect(() => {
+    (async () => {
+      try {
+        // Note: Check if the IP '192.168.0.235:8083' is hardcoded intentionally or if you should use base URL
+        const res = await categoryApi.get(`http://192.168.0.235:8083/api/category/admin/revenue/category-monthly?month=${selectedMonth}`);
         setCategoryMonthlyData(
           (res.data || []).map(item => ({
             name: item.categoryName,
@@ -235,58 +242,44 @@ useEffect(() => {
       }
     })();
   }, [selectedMonth]);
- useEffect(() => {
-  if (!selectedDate) return;
-  // Fetch date-wise orders and total order amount
-  orderApi
-    .get(`/api/orders/admin/date?date=${selectedDate}`)
-    .then((res) => {
-      setOrderCount(res.data.length || 0);      // count of orders
-      const sale = res.data.reduce((sum, prod) => sum + (prod.orderAmount || 0), 0);
-      setRevenue(sale);    // sum of orderAmount
-    })
-    .catch(() => {
-      setOrderCount(0);
-      setRevenue(0);
-    });
-}, [selectedDate]);
 
-useEffect(() => {
-  categoryApi
-    .get(`/api/products/activeProd?page=${productPage - 1}&size=${productPageSize}`)
-    .then(res => {
-      setProducts(res.data.content || []);
-      setProductTotal(res.data.totalElements || 0);
-      setProductCount(res.data.totalElements || 0); // For stats card
-      const sales = (res.data.content || []).reduce((sum, prod) => sum + (prod.finalPrice || 0), 0);
-      setTotalSales(sales);
-    })
-    .catch(() => {
-      setProducts([]);
-      setProductTotal(0);
-      setProductCount(0);
-      setTotalSales(0);
-    });
-}, [productPage, productPageSize]);
+  // 7. Active Products
+  useEffect(() => {
+    categoryApi
+      .get(`/api/products/activeProd?page=${productPage - 1}&size=${productPageSize}`)
+      .then(res => {
+        setProducts(res.data.content || []);
+        setProductTotal(res.data.totalElements || 0);
+        setProductCount(res.data.totalElements || 0); 
+        const sales = (res.data.content || []).reduce((sum, prod) => sum + (prod.finalPrice || 0), 0);
+        setTotalSales(sales);
+      })
+      .catch(() => {
+        setProducts([]);
+        setProductTotal(0);
+        setProductCount(0);
+        setTotalSales(0);
+      });
+  }, [productPage, productPageSize]);
 
-useEffect(() => {
-  rootApi
-    .get(`/api/admin/branches?page=${branchPage - 1}&size=${branchPageSize}`)
-    .then(res => {
-      setBranches(res.data.content || []);
-      setBranchTotal(res.data.totalElements || 0);
-      setBranchCount(res.data.totalElements || 0); // For stats card
-    })
-    .catch(() => {
-      setBranches([]);
-      setBranchTotal(0);
-      setBranchCount(0);
-    });
-}, [branchPage, branchPageSize]);
-  // --- Filtered Data ---
+  // 8. Branches
+  useEffect(() => {
+    rootApi
+      .get(`/api/admin/branches?page=${branchPage - 1}&size=${branchPageSize}`)
+      .then(res => {
+        setBranches(res.data.content || []);
+        setBranchTotal(res.data.totalElements || 0);
+        setBranchCount(res.data.totalElements || 0);
+      })
+      .catch(() => {
+        setBranches([]);
+        setBranchTotal(0);
+        setBranchCount(0);
+      });
+  }, [branchPage, branchPageSize]);
 
-const customers = allCustomers;
 
+  // --- Filtered Data Calculations ---
   // --- Filter chart data by year range ---
   const filteredYearlyData = yearlyData.filter(
     (d) => d.year >= startYear && d.year <= endYear
@@ -294,6 +287,10 @@ const customers = allCustomers;
   const filteredYearlyCategoryTrendData = yearlyCategoryTrendData.filter(
     (d) => d.year >= startYear && d.year <= endYear
   );
+  
+  // Pagination helpers
+  const paginate = (arr, page, perPage = 5) => arr.slice((page - 1) * perPage, page * perPage);
+
   return (
     <div className="min-h-screen bg-emerald-50/60 p-4 md:p-6 lg:p-8 font-sans">
       {/* Header */}
@@ -316,46 +313,46 @@ const customers = allCustomers;
 
       {/* Stats Cards */}
      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
-  <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
-    <span className="text-3xl bg-green-50 p-3 rounded-full">🥦</span>
-    <div>
-      <div className="text-lg font-bold text-gray-800">{productCount}</div>
-      <div className="text-xs md:text-sm text-gray-500 font-medium">Products</div>
+      <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
+        <span className="text-3xl bg-green-50 p-3 rounded-full">🥦</span>
+        <div>
+          <div className="text-lg font-bold text-gray-800">{productCount}</div>
+          <div className="text-xs md:text-sm text-gray-500 font-medium">Products</div>
+        </div>
+      </div>
+      <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
+        <span className="text-3xl bg-green-50 p-3 rounded-full">💰</span>
+        <div>
+          <div className="text-lg font-bold text-gray-800">₹{revenue}</div>
+          <div className="text-xs md:text-sm text-gray-500 font-medium">Total Sales</div>
+        </div>
+      </div>
+      <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
+        <span className="text-3xl bg-green-50 p-3 rounded-full">🛒</span>
+        <div>
+          <div className="text-lg font-bold text-gray-800">{orderCount}</div>
+          <div className="text-xs md:text-sm text-gray-500 font-medium">Orders (Today)</div>
+        </div>
+      </div>
+      <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
+        <span className="text-3xl bg-green-50 p-3 rounded-full">📅</span>
+        <div>
+          <div className="text-lg font-bold text-gray-800">
+            {monthlyStats.totalOrders} Orders | ₹{monthlyStats.totalRevenue}
+          </div>
+          <div className="text-xs md:text-sm text-gray-500 font-medium">
+            This Month
+          </div>
+        </div>
+      </div>
+      <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
+        <span className="text-3xl bg-green-50 p-3 rounded-full">🏬</span>
+        <div>
+          <div className="text-lg font-bold text-gray-800">{branchCount}</div>
+          <div className="text-xs md:text-sm text-gray-500 font-medium">Branches</div>
+        </div>
+      </div>
     </div>
-  </div>
-  <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
-    <span className="text-3xl bg-green-50 p-3 rounded-full">💰</span>
-    <div>
-      <div className="text-lg font-bold text-gray-800">₹{revenue}</div>
-      <div className="text-xs md:text-sm text-gray-500 font-medium">Total Sales</div>
-    </div>
-  </div>
-  <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
-    <span className="text-3xl bg-green-50 p-3 rounded-full">🛒</span>
-    <div>
-      <div className="text-lg font-bold text-gray-800">{orderCount}</div>
-      <div className="text-xs md:text-sm text-gray-500 font-medium">Orders (Today)</div>
-    </div>
-  </div>
-  <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
-  <span className="text-3xl bg-green-50 p-3 rounded-full">📅</span>
-  <div>
-    <div className="text-lg font-bold text-gray-800">
-      {monthlyStats.totalOrders} Orders | ₹{monthlyStats.totalRevenue}
-    </div>
-    <div className="text-xs md:text-sm text-gray-500 font-medium">
-      This Month
-    </div>
-  </div>
-</div>
-  <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
-    <span className="text-3xl bg-green-50 p-3 rounded-full">🏬</span>
-    <div>
-      <div className="text-lg font-bold text-gray-800">{branchCount}</div>
-      <div className="text-xs md:text-sm text-gray-500 font-medium">Branches</div>
-    </div>
-  </div>
-</div>
        
       <div className="grid grid-cols-1 lg:grid-cols-3 mb-5 gap-8">
         {/* Top Products */}
@@ -476,8 +473,7 @@ const customers = allCustomers;
           </div>
         </div>
 
-        {/* Top Customers */}
-         {/* Category-wise Line Chart */}
+        {/* Category-wise Line Chart */}
       <div className="bg-white rounded-xl shadow p-6 border border-gray-100">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-bold text-green-700">Category Sales Volume (Monthly)</h2>

@@ -139,7 +139,7 @@ useEffect(() => {
   if (!showNotification) return;
   setLoadingNotifications(true);
 
-  // FIX: Only add date param if selectedDate is valid and NOT "All"
+  // Only add date param if selectedDate is valid and NOT "All"
   const isDateSelected = selectedDate && selectedDate !== "All";
   const dateParam = isDateSelected ? `&createdAt=${selectedDate}` : "";
 
@@ -147,27 +147,12 @@ useEffect(() => {
     .get(`/api/notification/all?page=${notificationPage}&size=10${dateParam}`)
     .then(res => {
       const { content = [], totalPages = 1 } = res.data || {};
-      // If page is 0, replace data (fresh fetch). If page > 0, append data (scroll).
-      setNotifications(prev =>
-        notificationPage === 0 ? content : [...prev, ...content]
-      );
+      setNotifications(content);
       setNotificationTotalPages(totalPages);
     })
     .catch(() => setNotifications([]))
     .finally(() => setLoadingNotifications(false));
 }, [showNotification, notificationPage, selectedDate]);
-
-  // Infinite scroll handler
-  const handleNotificationScroll = (e) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.target;
-    if (
-      scrollHeight - scrollTop <= clientHeight + 50 &&
-      !loadingNotifications &&
-      notificationPage + 1 < notificationTotalPages
-    ) {
-      setNotificationPage((prev) => prev + 1);
-    }
-  };
   // Notification modal helpers
   const dates = [
     "All",
@@ -318,32 +303,37 @@ useEffect(() => {
             </div>
 
             {/* Notification List */}
-            <div
-              className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/30 custom-scrollbar"
-              ref={notificationContainerRef}
-              onScroll={handleNotificationScroll}
-            >
-              {loadingNotifications && notificationPage === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mb-2"></div>
-                  <span className="text-xs font-medium">Loading updates...</span>
-                </div>
-              ) : filteredNotifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-gray-400 opacity-60">
-                  <div className="bg-gray-100 p-4 rounded-full mb-3">
-                     <span className="text-2xl">🔕</span>
-                  </div>
-                  <p className="text-sm font-medium">No notifications found</p>
-                  <p className="text-xs">Try selecting a different date</p>
-                </div>
-              ) : (
-                filteredNotifications
-                  .sort((a, b) => b.id - a.id) // Sorting Newest First
-                  .map((n) => (
-                    <div
-                      key={n.id}
-                      className="group relative bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
-                    >
+<div
+  className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/30 custom-scrollbar"
+>
+  {loadingNotifications ? (
+    <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mb-2"></div>
+      <span className="text-xs font-medium">Loading updates...</span>
+    </div>
+  ) : notifications.length === 0 ? (
+    <div className="flex flex-col items-center justify-center py-16 text-gray-400 opacity-60">
+      <div className="bg-gray-100 p-4 rounded-full mb-3">
+         <span className="text-2xl">🔕</span>
+      </div>
+      <p className="text-sm font-medium">No notifications found</p>
+      <p className="text-xs">Try selecting a different date</p>
+    </div>
+  ) : (
+    notifications
+      .sort((a, b) => b.id - a.id)
+      .map((n) => (
+        <div
+          key={n.id}
+          className={`group relative bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${
+            !n.isRead ? "ring-2 ring-emerald-400" : ""
+          }`}
+        >
+            {!n.isRead && (
+            <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10">
+              Unread
+            </span>
+          )}
                       {/* Left Accent Bar based on Type */}
                       <div className={`absolute left-0 top-0 bottom-0 w-1 ${
                         n.type === "SUCCESS" ? "bg-emerald-500" : n.type === "INFO" ? "bg-blue-500" : "bg-amber-500"
@@ -363,9 +353,13 @@ useEffect(() => {
                             <h4 className="text-sm font-bold text-gray-900 leading-tight pr-6">
                               {n.subject}
                             </h4>
-                            <span className="text-[10px] text-gray-400 whitespace-nowrap bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
-                               {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                              <span
+                                className=" absolute right-9 top-2 text-[10px] text-gray-500 whitespace-nowrap bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100 shadow-sm z-10"
+                                style={{ minWidth: 90 }}
+                              >
+                                {new Date(n.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' })}{" "}
+                                {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              </span>
                           </div>
                           
                           <p className="text-sm text-gray-600 leading-relaxed mb-3">
@@ -404,7 +398,7 @@ useEffect(() => {
                         {/* Delete Button (Hover only on desktop) */}
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteNotification(n.id); }}
-                          className="absolute top-2 right-2 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          className="absolute top-2 right-2 p-1.5 text-gray-300 hover:text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                           title="Remove notification"
                         >
                           <Trash2 size={14} /> {/* Ensure Trash2 is imported from lucide-react */}
@@ -413,9 +407,25 @@ useEffect(() => {
                     </div>
                   ))
               )}
-              {loadingNotifications && notificationPage > 0 && (
-                <div className="text-center text-gray-400 py-4 text-xs">Loading more...</div>
-              )}
+             <div className="flex justify-center items-center gap-4 mt-4">
+  <button
+    onClick={() => setNotificationPage((p) => Math.max(0, p - 1))}
+    disabled={notificationPage === 0}
+    className="px-3 py-1 rounded bg-gray-100 text-gray-600 disabled:opacity-50"
+  >
+    Prev
+  </button>
+  <span>
+    Page {notificationPage + 1} / {notificationTotalPages}
+  </span>
+  <button
+    onClick={() => setNotificationPage((p) => (p < notificationTotalPages - 1 ? p + 1 : p))}
+    disabled={notificationPage >= notificationTotalPages - 1}
+    className="px-3 py-1 rounded bg-gray-100 text-gray-600 disabled:opacity-50"
+  >
+    Next
+  </button>
+</div>
             </div>
 
             {/* Footer */}

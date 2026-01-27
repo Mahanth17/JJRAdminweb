@@ -47,7 +47,7 @@ export default function Loginpage({ onLoginSuccess })  {
   
   try {
     const response = await fetch(
-      `http://192.168.0.142:8082/api/auth/admin/login?email=${encodeURIComponent(loginEmail)}&password=${encodeURIComponent(loginPassword)}`,
+      `http://192.168.0.144:8082/api/auth/admin/login?email=${encodeURIComponent(loginEmail)}&password=${encodeURIComponent(loginPassword)}`,
       {
         method: 'POST',
         headers: {
