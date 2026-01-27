@@ -9,8 +9,7 @@ function cloneFormData(formData) {
   return newFormData;
 }
 
-// --- Token Refresh Logic ---
-const AUTH_API_URL = "https://hrms.anasolconsultancyservices.com/api/auth/refresh-token";
+// --- Token Refresh Logic (Optional - if you have refresh token endpoint) ---
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -33,7 +32,7 @@ export const createAxiosInstance = (baseURL) => {
     headers: { "Content-Type": "application/json" },
   });
 
-  // Request: Attach token
+  // Request: Attach Bearer token
   instance.interceptors.request.use(
     (config) => {
       const token = localStorage.getItem("accessToken");
@@ -45,52 +44,23 @@ export const createAxiosInstance = (baseURL) => {
     (error) => Promise.reject(error)
   );
 
-  // Response: Handle 401 and refresh token
+  // Response: Handle 401 (unauthorized)
   instance.interceptors.response.use(
     (response) => response,
     async (error) => {
       const originalRequest = error.config;
+      
+      // If 401 and not already retried
       if (error.response?.status === 401 && !originalRequest._retry) {
-        if (isRefreshing) {
-          return new Promise((resolve, reject) => {
-            failedQueue.push({ resolve, reject });
-          })
-            .then((token) => {
-              originalRequest.headers["Authorization"] = `Bearer ${token}`;
-              return instance(originalRequest);
-            })
-            .catch((err) => Promise.reject(err));
-        }
-
         originalRequest._retry = true;
-        isRefreshing = true;
-
-        try {
-          const refreshResponse = await axios.post(
-            AUTH_API_URL,
-            {},
-            { withCredentials: true }
-          );
-          const { accessToken } = refreshResponse.data;
-          localStorage.setItem("accessToken", accessToken);
-
-          if (originalRequest.data instanceof FormData) {
-            originalRequest.data = cloneFormData(originalRequest.data);
-          }
-
-          processQueue(null, accessToken);
-
-          originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
-          return instance(originalRequest);
-        } catch (refreshError) {
-          localStorage.clear();
-          window.location.href = "/login";
-          processQueue(refreshError);
-          return Promise.reject(refreshError);
-        } finally {
-          isRefreshing = false;
-        }
+        
+        // Clear token and redirect to login
+        localStorage.removeItem("accessToken");
+        window.location.href = "/login";
+        
+        return Promise.reject(error);
       }
+      
       return Promise.reject(error);
     }
   );
@@ -98,5 +68,7 @@ export const createAxiosInstance = (baseURL) => {
   return instance;
 };
 
-// --- Example usage: export your main API instance ---
-export const rootApi = createAxiosInstance("http://192.168.0.216:8080");
+// --- Export API instances ---
+export const rootApi = createAxiosInstance("http://192.168.0.142:8082");
+export const categoryApi = createAxiosInstance("http://192.168.0.142:8082");
+export const orderApi = createAxiosInstance("http://192.168.0.142:8082");

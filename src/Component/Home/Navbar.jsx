@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Menu, Search, User, LogOut, Settings, Bell } from "lucide-react";
+import { Menu, Search, User, LogOut, Settings, Bell, Lock } from "lucide-react";
 import JJRLogo from "../../assets/JJR.png"; // Adjust path if needed
 
 function Navbar({
@@ -9,16 +9,22 @@ function Navbar({
   setSearch,
   searchResults,
   onResultClick,
-  onShowNotification, // new prop
+  onShowNotification,
+  onShowChangePassword, // new prop
 }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  const handleChangePasswordClick = () => {
+    setIsProfileOpen(false);
+    onShowChangePassword();
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#e2ede6] border-b border-[#2d5c45] shadow-sm">
       <div className="flex items-center justify-between px-4 py-3 md:px-8">
         {/* --- LEFT SECTION (Menu Toggle & Mobile Logo) --- */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center  gap-3">
           <button
             className="lg:hidden flex items-center justify-center p-2 rounded-md hover:bg-[#dde3e0] transition-colors"
             onClick={() => setSidebarOpen(true)}
@@ -38,11 +44,8 @@ function Navbar({
         <div className="hidden lg:flex flex-1 items-center gap-4 mx-4">
           <div className="flex items-center gap-2 justify-start">
             <img src={JJRLogo} alt="JJR Logo" className="h-10 w-auto" />
-            {/*<span className="font-bold text-[#0d0e0e] text-xl font-TimesnewRoman tracking-wide">
-              JJROrganics
-            </span>*/}
           </div>
-          <div className="flex-1 relative">
+          <div className="flex-1 ml-40 relative">
             <div className="relative w-full text-gray-600 focus-within:text-[#1f4d36]">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search size={18} />
@@ -86,7 +89,7 @@ function Navbar({
           </div>
           <button
             className="hidden sm:block text-[#1f4d36] hover:bg-[#dde3e0] p-2 rounded-full transition-colors relative"
-            onClick={onShowNotification} // use the new prop
+            onClick={onShowNotification}
           >
             <Bell size={20} />
             <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[#e2ede6]"></span>
@@ -115,10 +118,17 @@ function Navbar({
                     <User size={16} />
                     My Profile
                   </a>
-                  <a href="#" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-[#e2ede6] hover:text-[#1f4d36] transition-colors gap-2">
+                  {/*<a href="#" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-[#e2ede6] hover:text-[#1f4d36] transition-colors gap-2">
                     <Settings size={16} />
                     Settings
-                  </a>
+                  </a>*/}
+                  <button
+                    onClick={handleChangePasswordClick}
+                    className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-[#e2ede6] hover:text-[#1f4d36] transition-colors gap-2"
+                  >
+                    <Lock size={16} />
+                    Change Password
+                  </button>
                   <div className="border-t border-gray-100 mt-1"></div>
                   <button
                     className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors gap-2"
@@ -133,7 +143,6 @@ function Navbar({
           </div>
         </div>
       </div>
-      {/* REMOVE notification modal and related state from here */}
     </header>
   );
 }

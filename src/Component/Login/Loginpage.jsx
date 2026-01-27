@@ -27,44 +27,65 @@ export default function Loginpage({ onLoginSuccess })  {
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   // Login handler
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const errors = { email: "", password: "" };
+  const handleLogin = async (e) => {
+  e.preventDefault();
+  const errors = { email: "", password: "" };
 
-    if (!loginEmail) errors.email = "Email is required";
-    else if (!validateEmail(loginEmail))
-      errors.email = "Enter a valid email address";
-    if (!loginPassword) errors.password = "Password is required";
-    else if (loginPassword.length < 6)
-      errors.password = "Password must be at least 6 characters";
+  if (!loginEmail) errors.email = "Email is required";
+  else if (!validateEmail(loginEmail))
+    errors.email = "Enter a valid email address";
+  if (!loginPassword) errors.password = "Password is required";
+  else if (loginPassword.length < 6)
+    errors.password = "Password must be at least 6 characters";
 
-    if (errors.email || errors.password) {
-      setLoginErrors(errors);
-      return;
+  if (errors.email || errors.password) {
+    setLoginErrors(errors);
+    return;
+  }
+
+  setLoading(true);
+  
+  try {
+    const response = await fetch(
+      `http://192.168.0.142:8082/api/auth/admin/login?email=${encodeURIComponent(loginEmail)}&password=${encodeURIComponent(loginPassword)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Invalid credentials');
     }
 
-    setLoading(true);
-    setTimeout(() => {
-      if (
-        loginEmail === STATIC_CREDENTIALS.username &&
-        loginPassword === STATIC_CREDENTIALS.password
-      ) {
-        setLoginSuccess(true);
-        setLoginErrors({ email: "", password: "" });
-        setTimeout(() => {
-          setLoginSuccess(false);
-          if (onLoginSuccess) onLoginSuccess();
-        }, 1200);
-      } else {
-        setLoginErrors({
-          email: "Invalid credentials",
-          password: "Invalid credentials",
-        });
+    const data = await response.json();
+    
+    if (data.accessToken) {
+      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("adminEmail", loginEmail);
+      setLoginSuccess(true);
+      setLoginErrors({ email: "", password: "" });
+      
+      setTimeout(() => {
         setLoginSuccess(false);
-      }
-      setLoading(false);
-    }, 800);
-  };
+        if (onLoginSuccess) onLoginSuccess();
+      }, 1200);
+    } else {
+      throw new Error('No access token received');
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    setLoginErrors({
+      email: "Invalid credentials",
+      password: "Invalid credentials",
+    });
+    setLoginSuccess(false);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Register handler
   const handleRegister = (e) => {

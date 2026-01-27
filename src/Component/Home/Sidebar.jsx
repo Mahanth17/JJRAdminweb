@@ -1,17 +1,31 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BarChart2, Package, LogOut, ChevronLeft, ChevronRight, Leaf, Folder } from "lucide-react";
+import { BarChart2, Package, LogOut, ChevronLeft, ChevronRight, Leaf, Folder, GitBranch, Warehouse, Users, ImageIcon, Ticket, UserPlus } from "lucide-react";
 
-function Sidebar({ isSidebarOpen, setSidebarOpen, onLogout, search }) {
+function Sidebar({ isSidebarOpen, setSidebarOpen, onLogout, search,  }) {
   const [collapsed, setCollapsed] = useState(false);
+   const adminEmail = localStorage.getItem("adminEmail");
   
   const location = useLocation();
-  const navItems = [
-    { name: "Dashboard", icon: <BarChart2 size={20} />, path: "/dashboard" },
-    { name: "Categories", icon: <Folder size={20} />, path: "/category" },
-    { name: "Products", icon: <Package size={20} />, path: "/products" },
-    { name: "Orders", icon: <Leaf size={20} />, path: "/orders" },
-  ];
+  let navItems = [
+  { name: "Dashboard", icon: <BarChart2 size={20} />, path: "/dashboard" },
+  { name: "Branches", icon: <GitBranch size={20} />, path: "/branches" },
+  { name: "Categories", icon: <Folder size={20} />, path: "/category" },
+  { name: "Products", icon: <Package size={20} />, path: "/products" },
+  { name: "Inventory", icon: <Warehouse size={20} />, path: "/inventory" },
+  { name: "Banners", icon: <ImageIcon size={20} />, path: "/banners" },
+  { name: "Coupons", icon: <Ticket size={20} />, path: "/coupons" },
+  { name: "Orders", icon: <Leaf size={20} />, path: "/orders" },
+  { name: "Users", icon: <Users size={20} />, path: "/users" },
+];
+
+if (adminEmail === "admin@organics.com") {
+    navItems.push({ 
+      name: "Add Admin", 
+      icon: <UserPlus size={20} />, 
+      path: "/add-admin" 
+    });
+  }
   const itemsToShow = search
     ? navItems.filter((item) =>
         item.name.toLowerCase().includes(search.toLowerCase())
