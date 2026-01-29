@@ -105,6 +105,12 @@ const Dashboard = () => {
   const [quantityData, setQuantityData] = useState([]);
   const [categoryPageSize] = useState(1);
 
+  const [catRevenuePage, setCatRevenuePage] = useState(0);
+  const [catRevenuePageSize, setCatRevenuePageSize] = useState(10);
+  const [catRevenueTotalPages, setCatRevenueTotalPages] = useState(1);
+  const [stockTotal, setStockTotal] = useState(0);
+  const [stockAvailable, setStockAvailable] = useState(0);
+
   const [tpStartDate, setTpStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
@@ -134,6 +140,22 @@ const Dashboard = () => {
     })();
   }, [tpStartDate, tpEndDate]);
 
+ useEffect(() => {
+  // Fetch all inventory (set a large size to get all, or implement backend total)
+  rootApi
+    .get(`/api/admin/inventory?page=0&size=1000`)
+    .then(res => {
+      const items = res.data.content || [];
+      const total = items.reduce((sum, item) => sum + (item.totalStock || 0), 0);
+      const available = items.reduce((sum, item) => sum + (item.availableStock || 0), 0);
+      setStockTotal(total);
+      setStockAvailable(available);
+    })
+    .catch(() => {
+      setStockTotal(0);
+      setStockAvailable(0);
+    });
+}, []);
   // 2. Category Counts (Pie Chart)
   useEffect(() => {
     const fetchCategoryCounts = async () => {
@@ -226,22 +248,26 @@ const Dashboard = () => {
   }, [selectedMonthBar, selectedYearBar]);
 
   // 6. Category Monthly Revenue (Line Chart)
-  useEffect(() => {
-    (async () => {
-      try {
-        // Note: Check if the IP '192.168.0.235:8083' is hardcoded intentionally or if you should use base URL
-        const res = await categoryApi.get(`http://192.168.0.235:8083/api/category/admin/revenue/category-monthly?month=${selectedMonth}`);
-        setCategoryMonthlyData(
-          (res.data || []).map(item => ({
-            name: item.categoryName,
-            sales: item.revenue,
-          }))
-        );
-      } catch {
-        setCategoryMonthlyData([]);
-      }
-    })();
-  }, [selectedMonth]);
+useEffect(() => {
+  (async () => {
+    try {
+      const res = await categoryApi.get(
+        `/api/category/admin/revenue/category-monthly?month=${selectedMonth}&page=${catRevenuePage}&size=${catRevenuePageSize}`
+      );
+      const paged = res.data;
+      setCategoryMonthlyData(
+        (paged.content || []).map(item => ({
+          name: item.categoryName,
+          sales: item.revenue,
+        }))
+      );
+      setCatRevenueTotalPages(paged.totalPages || 1);
+    } catch {
+      setCategoryMonthlyData([]);
+      setCatRevenueTotalPages(1);
+    }
+  })();
+}, [selectedMonth, catRevenuePage, catRevenuePageSize]);
 
   // 7. Active Products
   useEffect(() => {
@@ -312,7 +338,7 @@ const Dashboard = () => {
       </header>
 
       {/* Stats Cards */}
-     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-8">
+     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6 mb-8">
       <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
         <span className="text-3xl bg-green-50 p-3 rounded-full">🥦</span>
         <div>
@@ -352,6 +378,17 @@ const Dashboard = () => {
           <div className="text-xs md:text-sm text-gray-500 font-medium">Branches</div>
         </div>
       </div>
+      <div className="bg-white rounded-xl shadow hover:shadow-md transition p-5 flex items-center gap-4 border border-gray-100">
+        <span className="text-3xl bg-green-50 p-3 rounded-full">📦</span>
+        <div>
+          <div className="text-lg font-bold text-gray-800">
+            {stockAvailable}
+          </div>
+          <div className="text-xs md:text-sm text-gray-500 font-medium">
+            Stock (Available)
+          </div>
+        </div>
+</div>
     </div>
        
       <div className="grid grid-cols-1 lg:grid-cols-3 mb-5 gap-8">

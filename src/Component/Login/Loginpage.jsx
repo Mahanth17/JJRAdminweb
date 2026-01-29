@@ -64,15 +64,17 @@ export default function Loginpage({ onLoginSuccess })  {
   setLoading(true);
   
   try {
-    const response = await fetch(
-      `http://192.168.0.144:8082/api/auth/admin/login?email=${encodeURIComponent(loginEmail)}&password=${encodeURIComponent(loginPassword)}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    const response = await fetch("http://192.168.0.144:8082/api/auth/admin/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // ...other headers
+      },
+      body: JSON.stringify({
+        email: loginEmail,
+        password: loginPassword,
+      }),
+    });
 
     if (!response.ok) {
       throw new Error('Invalid credentials');
@@ -142,10 +144,10 @@ export default function Loginpage({ onLoginSuccess })  {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center bg-cover bg-center" 
-      style={{ backgroundImage: "url('https://images.unsplash.com/photo-1488459716781-31db52582fe9?q=80&w=2070&auto=format&fit=crop')" }}
+      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1f4d36] via-[#143324] to-[#eeb01c]/20"
+      //style={{ backgroundImage: "url('https://images.unsplash.com/photo-1488459716781-31db52582fe9?q=80&w=2070&auto=format&fit=crop')" }}
     >
-      <div className="absolute inset-0 bg-emerald-950 bg-opacity-50 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 "></div>
       <div className="relative z-10 w-full max-w-md bg-[#fcfaf7] rounded-2xl shadow-2xl p-8 border border-stone-200">
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">

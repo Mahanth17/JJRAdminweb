@@ -668,85 +668,85 @@ const DiscountFormModal = ({ isOpen, onClose, triggerSuccess, onDiscountCreated 
   };
 
   const validateForm = () => {
-  let newErrors = {};
-  let isValid = true;
+    let newErrors = {};
+    let isValid = true;
 
-  if (!formData.name.trim()) {
-    newErrors.name = "Discount name is required";
-    isValid = false;
-  }
+    if (!formData.name.trim()) {
+      newErrors.name = "Discount name is required";
+      isValid = false;
+    }
 
-  if (!formData.discountValue || parseFloat(formData.discountValue) <= 0) {
-    newErrors.discountValue = "Valid discount value is required";
-    isValid = false;
-  }
+    if (!formData.discountValue || parseFloat(formData.discountValue) <= 0) {
+      newErrors.discountValue = "Valid discount value is required";
+      isValid = false;
+    }
 
-  if (formData.discountType === 'PERCENT' && parseFloat(formData.discountValue) > 100) {
-    newErrors.discountValue = "Percent cannot exceed 100%";
-    isValid = false;
-  }
+    if (formData.discountType === 'PERCENT' && parseFloat(formData.discountValue) > 100) {
+      newErrors.discountValue = "Percent cannot exceed 100%";
+      isValid = false;
+    }
 
-  if (!formData.validFrom) {
-    newErrors.validFrom = "Valid from date and time is required";
-    isValid = false;
-  }
+    if (!formData.validFrom) {
+      newErrors.validFrom = "Valid from date and time is required";
+      isValid = false;
+    }
 
-  if (!formData.validTo) {
-    newErrors.validTo = "Valid to date and time is required";
-    isValid = false;
-  }
+    if (!formData.validTo) {
+      newErrors.validTo = "Valid to date and time is required";
+      isValid = false;
+    }
 
-  if (formData.validFrom && formData.validTo && new Date(formData.validFrom) >= new Date(formData.validTo)) {
-    newErrors.validTo = "Valid to must be after valid from";
-    isValid = false;
-  }
+    if (formData.validFrom && formData.validTo && new Date(formData.validFrom) >= new Date(formData.validTo)) {
+      newErrors.validTo = "Valid to must be after valid from";
+      isValid = false;
+    }
 
-  setErrors(newErrors);
-  return isValid;
-};
+    setErrors(newErrors);
+    return isValid;
+  };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!validateForm()) return;
+    e.preventDefault();
+    if (!validateForm()) return;
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    // Convert datetime-local to ISO format without timezone shift
-    // datetime-local format: "2026-01-20T11:59"
-    // We append seconds and 'Z' to make it ISO: "2026-01-20T11:59:00.000Z"
-    const formatToISO = (dateTimeLocal) => {
-      if (!dateTimeLocal) return null;
-      // Add seconds and milliseconds, then append 'Z' for UTC
-      return `${dateTimeLocal}:00.000Z`;
-    };
+    try {
+      // --- FIX: Use standard ISO String conversion ---
+      // This handles timezone conversion correctly and prevents format errors on backend
+      const formatToISO = (dateTimeLocal) => {
+        if (!dateTimeLocal) return null;
+        return new Date(dateTimeLocal).toISOString();
+      };
 
-    const payload = {
-      name: formData.name,
-      discountType: formData.discountType,
-      discountValue: parseFloat(formData.discountValue),
-      scope: formData.scope,
-      active: formData.active,
-      validFrom: formatToISO(formData.validFrom),  // "2026-01-20T11:59:00.000Z"
-      validTo: formatToISO(formData.validTo),      // "2026-01-20T13:00:00.000Z"
-    };
+      const payload = {
+        name: formData.name,
+        discountType: formData.discountType,
+        discountValue: parseFloat(formData.discountValue),
+        scope: formData.scope,
+        active: formData.active,
+        validFrom: formatToISO(formData.validFrom),
+        validTo: formatToISO(formData.validTo),
+      };
 
-    const response = await rootApi.post('/api/admin/discounts', payload);
-    triggerSuccess('Discount Created Successfully');
-    
-    // Pass discount ID to parent component
-    if (response.data && response.data.id) {
-      onDiscountCreated(response.data.id, formData.scope);
+      const response = await rootApi.post('/api/admin/discounts', payload);
+      triggerSuccess('Discount Created Successfully');
+      
+      // Pass discount ID to parent component
+      if (response.data && response.data.id) {
+        onDiscountCreated(response.data.id, formData.scope);
+      }
+      
+      handleClose();
+    } catch (error) {
+      console.error('Error creating discount:', error);
+      // Show more specific error if available
+      const errMsg = error.response?.data?.message || 'Failed to create discount. Check for duplicate names.';
+      alert(errMsg);
+    } finally {
+      setLoading(false);
     }
-    
-    handleClose();
-  } catch (error) {
-    console.error('Error creating discount:', error);
-    alert('Failed to create discount. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleClose = () => {
     setFormData({
@@ -824,18 +824,25 @@ const DiscountFormModal = ({ isOpen, onClose, triggerSuccess, onDiscountCreated 
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Discount Value <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="number"
-                  name="discountValue"
-                  value={formData.discountValue}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 20"
-                  step="0.01"
-                  min="0"
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition bg-gray-50 focus:bg-white ${
-                    errors.discountValue ? 'border-red-500' : 'border-gray-200'
-                  }`}
-                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    name="discountValue"
+                    value={formData.discountValue}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 20"
+                    step="0.01"
+                    min="0"
+                    className={`w-full px-4 py-3 pl-10 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition bg-gray-50 focus:bg-white ${
+                      errors.discountValue ? 'border-red-500' : 'border-gray-200'
+                    }`}
+                  />
+                  {formData.discountType === 'PERCENT' ? (
+                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  ) : (
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  )}
+                </div>
                 {errors.discountValue && (
                   <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
                     <AlertCircle size={14} />
@@ -961,15 +968,17 @@ const AssignDiscountProductModal = ({ isOpen, onClose, discountId, triggerSucces
     }
   }, [isOpen]);
 
-  const fetchProducts = async () => {
-    try {
-      const response = await categoryApi.get('/api/products/activeProd');
-      setProducts(response.data || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      setError('Failed to load products');
-    }
-  };
+const fetchProducts = async (page = 1, size = 100000) => {
+  try {
+    const response = await categoryApi.get(`/api/products/activeProd?page=${page - 1}&size=${size}`);
+    setProducts(response.data?.content || []);
+    // Optionally, handle total pages/count if your API returns them
+    // setTotalPages(response.data.totalPages || 1);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    setError('Failed to load products');
+  }
+};
 
   if (!isOpen) return null;
 
@@ -1092,15 +1101,17 @@ const AssignDiscountCategoryModal = ({ isOpen, onClose, discountId, triggerSucce
     }
   }, [isOpen]);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await categoryApi.get('/api/category/Active');
-      setCategories(response.data || []);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      setError('Failed to load categories');
-    }
-  };
+const fetchCategories = async (page = 1, size = 100000) => {
+  try {
+    const response = await categoryApi.get(`/api/category/Active?page=${page - 1}&size=${size}`);
+    setCategories(response.data?.content || []);
+    // Optionally, handle total pages/count if your API returns them
+    // setTotalPages(response.data.totalPages || 1);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    setError('Failed to load categories');
+  }
+};
 
   if (!isOpen) return null;
 

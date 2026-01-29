@@ -10,7 +10,8 @@ function Navbar({
   searchResults,
   onResultClick,
   onShowNotification,
-  onShowChangePassword, // new prop
+  onShowChangePassword,
+  unreadCount // new prop
 }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -92,7 +93,7 @@ function Navbar({
             onClick={onShowNotification}
           >
             <Bell size={20} />
-            <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[#e2ede6]"></span>
+           {unreadCount > 0 && (  <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[#e2ede6]"></span>)}
           </button>
           <div className="relative">
             <button

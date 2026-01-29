@@ -174,10 +174,32 @@ const fetchCategories = async (pageNumber = 0, shouldRefresh = false) => {
   };
 
   const allImages = [
-    ...existingImages.map(img => ({ url: img.imageUrl, type: 'existing', id: img.id })),
-    ...productImages.map(file => ({ url: URL.createObjectURL(file), type: 'new', file }))
-  ];
-
+  ...existingImages.map(img => ({ 
+    url: img.url || img.imageUrl, // Backend 'url' property ni use chestunnam
+    type: 'existing', 
+    id: img.id 
+  })),
+  ...productImages.map(file => ({ 
+    url: URL.createObjectURL(file), 
+    type: 'new', 
+    file 
+  }))
+]
+const handleDeleteExistingImage = async (imageId) => {
+  if (window.confirm("Are you sure you want to delete this image?")) {
+    try {
+      // Meeru ichina delete endpoint
+      await rootApi.delete(`http://192.168.0.233:8083/api/products/delete/${imageId}`);
+      
+      // UI nundi kooda remove chestunnam
+      setExistingImages(prev => prev.filter(img => img.id !== imageId));
+      triggerSuccess("Image deleted successfully");
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      alert("Failed to delete image from server.");
+    }
+  }
+};
   const nextImage = () => {
     setCurrentImageIdx((prev) => (prev + 1) % allImages.length);
   };
@@ -293,27 +315,32 @@ const fetchCategories = async (pageNumber = 0, shouldRefresh = false) => {
                 )}
               </div>
 
-              {allImages.length > 0 ? (
-                <div className="relative w-full h-64 bg-gray-100 rounded-xl overflow-hidden group mb-3">
-                  <img src={allImages[currentImageIdx].url} alt="Preview" className="w-full h-full object-contain" />
-                  <div className="absolute top-2 left-2 z-10">
-                    <span className={`text-xs font-bold px-2 py-1 rounded ${allImages[currentImageIdx].type === 'existing' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'}`}>
-                      {allImages[currentImageIdx].type === 'existing' ? 'Existing' : 'New'}
-                    </span>
-                  </div>
-                   {allImages.length > 1 && (
-                      <>
-                        <button type="button" onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 p-1 bg-white/80 text-gray-800 rounded-full hover:bg-white z-20">
-                          <ChevronLeft size={24} />
-                        </button>
-                        <button type="button" onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 bg-white/80 text-gray-800 rounded-full hover:bg-white z-20">
-                          <ChevronRight size={24} />
-                        </button>
-                      </>
-                    )}
-                  <button type="button" onClick={removeCurrentImage} className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-20">
-                    <Trash2 size={18} />
-                  </button>
+{allImages.length > 0 ? (
+  <div className="relative w-full h-64 bg-gray-100 rounded-xl overflow-hidden group mb-3">
+    <img src={allImages[currentImageIdx].url} alt="Preview" className="w-full h-full object-contain" />
+    
+    {allImages.length > 1 && (
+      <>
+        <button type="button" onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 p-1 bg-white/80 text-gray-800 rounded-full hover:bg-white z-20">
+          <ChevronLeft size={24} />
+        </button>
+        <button type="button" onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 bg-white/80 text-gray-800 rounded-full hover:bg-white z-20">
+          <ChevronRight size={24} />
+        </button>
+      </>
+    )}
+
+    {/* Trash Icon for Existing Images to call Delete API */}
+    {allImages[currentImageIdx].type === 'existing' && (
+      <button 
+        type="button" 
+        onClick={() => handleDeleteExistingImage(allImages[currentImageIdx].id)} 
+        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-20"
+      >
+        <Trash2 size={18} />
+      </button>
+    )}
+ 
                   <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
                     {currentImageIdx + 1} / {allImages.length}
                   </div>
@@ -636,16 +663,15 @@ const fetchProducts = async (pageNumber = 1, size = productPageSize) => {
   );
 
   // --- Image Helpers for Products ---
-  const getProductImage = (product) => {
-    const index = imageIndexes[product.id] || 0;
-    if (product.imageUrls && product.imageUrls.length > 0) {
-        return product.imageUrls[index];
-    }
-    if (product.images && product.images.length > 0) {
-        return product.images[index].imageUrl;
-    }
-    return 'https://via.placeholder.com/400x500?text=No+Image';
-  };
+const getProductImage = (product) => {
+  const index = imageIndexes[product.id] || 0;
+  // Backend response structure prakaram 'url' property ni check chestunnam
+  if (product.imageUrls && product.imageUrls.length > 0) {
+      const imgObj = product.imageUrls[index];
+      return typeof imgObj === 'string' ? imgObj : imgObj.url;
+  }
+  return 'https://via.placeholder.com/400x500?text=No+Image';
+};
 
   const getImagesLength = (product) => {
       return (product.imageUrls?.length) || (product.images?.length) || 0;
@@ -738,8 +764,9 @@ const fetchProducts = async (pageNumber = 1, size = productPageSize) => {
                 </div>
             )}
 
+             <> 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              <> 
+             
                 {filteredProducts.map((product) => {
                   const dynamicDiscount = product.discountAmount; // API provided discount amount
                   const manualDiscount = product.discount; // Manual discount
@@ -843,8 +870,9 @@ const fetchProducts = async (pageNumber = 1, size = productPageSize) => {
                         </div>
                     </div>
                 );})}
-                </>
-                <div className="flex justify-center items-center gap-4 mt-3">
+            </div>
+            </>
+            <div className="flex justify-center items-center gap-4 mt-3">
                   <div>
                     <label className="mr-2 font-medium text-gray-700">Rows per page:</label>
                     <select
@@ -869,7 +897,6 @@ const fetchProducts = async (pageNumber = 1, size = productPageSize) => {
                     className="px-2 py-1 rounded bg-gray-100 text-gray-600 disabled:opacity-50"
                   >Next</button>
                 </div>
-            </div>
         </div>
 
         {/* Product Modal */}
@@ -947,9 +974,8 @@ const fetchProducts = async (pageNumber = 1, size = productPageSize) => {
             </p>
           </div>
         )}
-
+        <> 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-         <> 
           {filteredCategories.map((category) => (
             <div key={category.id} onClick={() => category.status && setSelectedCategory(category)} className="group bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col relative cursor-pointer">
              {!category.status && (
@@ -984,8 +1010,9 @@ const fetchProducts = async (pageNumber = 1, size = productPageSize) => {
             </div>
             
           ))}
-          </>
-          <div className="flex justify-center items-center gap-4 mt-3">
+        </div>
+        </>
+        <div className="flex justify-center items-center gap-4 mt-3">
             <div>
               <label className="mr-2 font-medium text-gray-700">Rows per page:</label>
               <select
@@ -1010,7 +1037,6 @@ const fetchProducts = async (pageNumber = 1, size = productPageSize) => {
               className="px-2 py-1 rounded bg-gray-100 text-gray-600 disabled:opacity-50"
             >Next</button>
           </div>
-        </div>
       </div>
 
       {/* Category Modal */}

@@ -14,7 +14,7 @@ import {
   Search, // Added Search icon
 } from 'lucide-react';
 import axios from 'axios';
-import { categoryApi } from '../../../axiosInstance';
+import { categoryApi, orderApi } from '../../../axiosInstance';
 import { div } from 'framer-motion/client';
 
 const API_BASE_URL = 'http://192.168.0.233:8083';
@@ -60,9 +60,12 @@ const ProductFormModal = ({ isOpen, onClose, onSave, productToEdit, triggerSucce
   const [errors, setErrors] = useState({});
 
   const [productImages, setProductImages] = useState([]);
-  const [existingImages, setExistingImages] = useState(
-    productToEdit?.imageUrls?.map((url, index) => ({ id: index, imageUrl: url })) || []
-  );
+const [existingImages, setExistingImages] = useState(
+  productToEdit?.imageUrls?.map((img, index) => ({
+    id: img.id ?? index,
+    url: img.url ?? img.imageUrl ?? img, // support both formats and plain string
+  })) || []
+);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -97,7 +100,12 @@ const ProductFormModal = ({ isOpen, onClose, onSave, productToEdit, triggerSucce
         netWeight: productToEdit.netWeight || '',
       });
       setExistingImages(
-        productToEdit.imageUrls?.map((url, index) => ({ id: index, imageUrl: url })) || []
+        productToEdit.imageUrls
+          ? productToEdit.imageUrls.map((img, index) => ({
+              id: img.id ?? index,
+              url: img.url ?? img.imageUrl ?? img,
+            }))
+          : []
       );
     }
   }, [productToEdit]);
@@ -158,10 +166,18 @@ const fetchCategories = async (pageNum = categoryPage, size = categoryPageSize) 
     }
   };
 
-  const allImages = [
-    ...existingImages.map(img => ({ url: img.imageUrl, type: 'existing', id: img.id })),
-    ...productImages.map(file => ({ url: URL.createObjectURL(file), type: 'new', file }))
-  ];
+ const allImages = [
+  ...existingImages.map(img => ({ 
+    url: img.url || img.imageUrl, // img.url backend nundi vachedi
+    type: 'existing', 
+    id: img.id 
+  })),
+  ...productImages.map(file => ({ 
+    url: URL.createObjectURL(file), 
+    type: 'new', 
+    file 
+  }))
+];
 
   const nextImage = () => {
     setCurrentImageIdx((prev) => (prev + 1) % allImages.length);
@@ -206,6 +222,21 @@ const fetchCategories = async (pageNum = categoryPage, size = categoryPageSize) 
     return isValid;
   };
 
+  const handleDeleteExistingImage = async (imageId) => {
+  if (window.confirm("Are you sure you want to delete this image?")) {
+    try {
+      // Meeru ichina delete endpoint use chestunnam
+      await orderApi.delete(`/api/products/delete/${imageId}`);
+      
+      // UI nundi kooda remove chestunnam
+      setExistingImages(prev => prev.filter(img => img.id !== imageId));
+      triggerSuccess("Image deleted successfully");
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      alert("Failed to delete image from server.");
+    }
+  }
+};
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -291,48 +322,56 @@ const fetchCategories = async (pageNum = categoryPage, size = categoryPageSize) 
                 </div>
               )}
 
-              {allImages.length > 0 ? (
-                <div className="relative w-full h-64 bg-gray-100 rounded-xl overflow-hidden group mb-3">
-                  <img
-                    src={allImages[currentImageIdx].url}
-                    alt="Product preview"
-                    className="w-full h-full object-contain"
-                  />
-                  
-                  <div className="absolute top-2 left-2 z-10">
-                    <span className={`text-xs font-bold px-2 py-1 rounded ${
-                      allImages[currentImageIdx].type === 'existing' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-green-500 text-white'
-                    }`}>
-                      {allImages[currentImageIdx].type === 'existing' ? 'Existing' : 'New'}
-                    </span>
-                  </div>
+{allImages.length > 0 && allImages[currentImageIdx] ? (
+  <div className="relative w-full h-64 bg-gray-100 rounded-xl overflow-hidden group mb-3">
+    <img 
+      src={allImages[currentImageIdx].url} 
+      alt="Preview" 
+      className="w-full h-full object-contain" 
+      onError={(e) => {
+        // Fallback if the URL itself is broken
+        e.target.src = 'https://via.placeholder.com/400x300?text=Image+Error';
+      }}
+    />
 
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-between px-4">
-                    {allImages.length > 1 && (
-                      <>
-                        <button type="button" onClick={prevImage} className="p-1 bg-white/80 text-gray-800 rounded-full hover:bg-white">
-                          <ChevronLeft size={24} />
-                        </button>
-                        <button type="button" onClick={nextImage} className="p-1 bg-white/80 text-gray-800 rounded-full hover:bg-white">
-                          <ChevronRight size={24} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={removeCurrentImage}
-                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-                    {currentImageIdx + 1} / {allImages.length}
-                  </div>
-                </div>
-              ) : null}
+    {/* Carousel navigation */}
+    {allImages.length > 1 && (
+      <>
+        <button
+          type="button"
+          onClick={prevImage}
+          className="absolute left-2 top-1/2 -translate-y-1/2 p-1 bg-white/80 text-gray-800 rounded-full hover:bg-white z-20"
+        >
+          <ChevronLeft size={24} />
+        </button>
+        <button
+          type="button"
+          onClick={nextImage}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 bg-white/80 text-gray-800 rounded-full hover:bg-white z-20"
+        >
+          <ChevronRight size={24} />
+        </button>
+      </>
+    )}
+
+    {/* Trash Icon for Existing Images */}
+    {allImages[currentImageIdx]?.type === 'existing' && (
+      <button
+        type="button"
+        onClick={() => handleDeleteExistingImage(allImages[currentImageIdx].id)}
+        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-20"
+        title="Delete Image"
+      >
+        <Trash2 size={18} />
+      </button>
+    )}
+    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+      {currentImageIdx + 1} / {allImages.length}
+    </div>
+  </div>
+) : (
+  allImages.length > 0 && setCurrentImageIdx(0) // Reset index if it points to an undefined slot
+)}
 
               <input
                 type="file"
@@ -716,9 +755,11 @@ const fetchProducts = async (pageNum = productsPage, size = pageSize) => {
         ) : (
           <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => {
-               const currentImgIndex = imageIndexes[product.id] || 0;
-               const currentImg = product.imageUrls?.[currentImgIndex] || 'https://via.placeholder.com/400x500?text=No+Image';
+          {filteredProducts.map((product) => {
+             const currentImgIndex = imageIndexes[product.id] || 0;
+             // ikkada .url add cheyandi
+             const imageData = product.imageUrls?.[currentImgIndex];
+             const currentImg = imageData?.url || 'https://via.placeholder.com/400x500?text=No+Image';
                
                // --- FIX: Logic to handle Dynamic vs Manual Discount ---
                const dynamicDiscountValue = product.discountAmount; // From Coupon/Discount API

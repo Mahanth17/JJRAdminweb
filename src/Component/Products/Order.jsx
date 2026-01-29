@@ -273,26 +273,38 @@ const OrderCard = ({ order, onUpdateClick }) => {
         <div className="flex flex-col">
           <span className="text-[10px] text-gray-400 font-medium uppercase">Order Total</span>
           <span className="font-bold text-gray-900 text-lg">₹{order.orderAmount}</span>
-        </div>
-        
-                <div className="flex items-center gap-2">
-          {/* Download Invoice Button */}
-          <button
-            onClick={() => downloadInvoice(order)}
-            className="flex items-center gap-1 text-sm medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-blue-100"
-            title="Download Invoice"
-          >
-            <Download size={16} />
-            <span className="hidden sm:inline">Invoice</span>
-          </button>
-          {/* Update Status Button */}
-          <button
-            onClick={() => onUpdateClick(order)}
-            className="text-sm font-medium text-[#10B981] hover:text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 bg-emerald-100 rounded-lg transition-colors"
-          >
-            Update Status
-          </button>
-        </div>
+        </div>    
+<div className="flex items-center gap-2">
+  {/* Track Order Button - Added here */}
+  {order.shiprocketTrackingUrl && (
+    <button
+      onClick={() => window.open(order.shiprocketTrackingUrl, '_blank')}
+      className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors border border-blue-100 hover:border-blue-200"
+      title="Track Order"
+    >
+      <Truck size={16} />
+      <span className="hidden sm:inline">Track</span>
+    </button>
+  )}
+
+  {/* Download Invoice Button */}
+  <button
+    onClick={() => downloadInvoice(order)}
+    className="flex items-center gap-1 text-sm medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+    title="Download Invoice"
+  >
+    <Download size={16} />
+    <span className="hidden sm:inline">Invoice</span>
+  </button>
+
+  {/* Update Status Button */}
+  <button
+    onClick={() => onUpdateClick(order)}
+    className="text-sm font-medium text-[#10B981] hover:text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 bg-emerald-100 rounded-lg transition-colors"
+  >
+    Update Status
+  </button>
+</div>
       </div>
       <div className="h-1 w-full bg-gray-100 mt-auto">
         <div className="h-full bg-[#10B981] w-full opacity-80"></div>
@@ -305,6 +317,7 @@ const statusOptions = [
   "PENDING",
   "CONFIRMED",
   "PROCESSING",
+  "DISPATCHED",
   "SHIPPED",
   "DELIVERED",
   "CANCELLED",
@@ -328,6 +341,9 @@ const Order = () => {
   const [newStatus, setNewStatus] = useState("PENDING");
   const [updating, setUpdating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
   const fetchStats = async () => {
@@ -343,9 +359,11 @@ const Order = () => {
           acc.pendingOrders += day.pendingOrders || 0;
           acc.deliveredOrders += day.deliveredOrders || 0;
           acc.totalRevenue += day.totalRevenue || 0;
+          acc.confirmedOrders += day.confirmedOrders || 0;
+          acc.shippedOrders += day.shippedOrders || 0;
           return acc;
         },
-        { totalOrders: 0, pendingOrders: 0, deliveredOrders: 0, totalRevenue: 0 }
+        { totalOrders: 0, pendingOrders: 0, deliveredOrders: 0, totalRevenue: 0, confirmedOrders: 0, shippedOrders: 0 }
       );
       setStats(totals);
     } catch (e) {
@@ -356,53 +374,50 @@ const Order = () => {
 }, [startDate, endDate]);
 
 useEffect(() => {
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      let res;
-      if (statusFilter === "ALL") {
-        res = await orderApi.get("/api/orders/admin/all");
-      } else {
-        res = await orderApi.get(`/api/orders/admin/status?status=${statusFilter}`);
+    const fetchOrders = async () => {
+      setLoading(true);
+      try {
+        let res;
+        if (statusFilter === "ALL") {
+          res = await orderApi.get(`/api/orders/admin/all?page=${page}&size=${pageSize}`);
+        } else {
+          res = await orderApi.get(`/api/orders/admin/status?status=${statusFilter}&page=${page}&size=${pageSize}`);
+        }
+        // If your API returns a paged object:
+        const paged = res.data;
+        const data = (paged.content || paged).map((o) => ({
+          id: o.id,
+          orderDate: o.orderDate,
+          orderAmount: o.orderAmount,
+          orderStatus: o.orderStatus,
+          userId: o.userId,
+          userName: o.userName,
+          fullAddress: o.shippingAddress?.fullAddress || "",
+          orderItems: o.orderItems,
+          shiprocketTrackingUrl: o.shiprocketTrackingUrl || null, 
+        }));
+        data.sort((a, b) => b.id - a.id);
+        setOrders(data);
+        setTotalPages(paged.totalPages || 1);
+        const cats = new Set();
+        data.forEach((order) =>
+          order.orderItems.forEach((item) => cats.add(item.productName))
+        );
+        setCategories(["All", ...Array.from(cats)]);
+      } catch (e) {
+        setOrders([]);
+        setCategories(["All"]);
+        setTotalPages(1);
       }
-      const data = res.data.map((o) => ({
-        id: o.id,
-        orderDate: o.orderDate,
-        orderAmount: o.orderAmount,
-        orderStatus: o.orderStatus,
-        userId: o.userId,
-        userName: o.userName,
-        fullAddress: o.shippingAddress?.fullAddress || "",
-        orderItems: o.orderItems,
-      }));
-
-      // Sort by ID ascending (change to b.id - a.id for descending)
-      data.sort((a, b) => a.id - b.id);
-
-      setOrders(data);
-
-      const cats = new Set();
-      data.forEach((order) =>
-        order.orderItems.forEach((item) => cats.add(item.productName))
-      );
-      setCategories(["All", ...Array.from(cats)]);
-    } catch (e) {
-      setOrders([]);
-      setCategories(["All"]);
-    }
-    setLoading(false);
-  };
-  fetchOrders();
-}, [statusFilter]);
-
-  
-
+      setLoading(false);
+    };
+    fetchOrders();
+  }, [statusFilter, page, pageSize]);
   const filteredOrders = orders.filter((order) =>
     order.orderItems.some((item) =>
       item.productName.toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
-
   const handleStatusUpdate = async () => {
     if (!modalOrder) return;
     setUpdating(true);
@@ -595,6 +610,7 @@ useEffect(() => {
             <p className="text-sm text-gray-500">Adjust filters to see results.</p>
           </div>
         ) : (
+           <> 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredOrders.map((order) => (
               <OrderCard 
@@ -607,6 +623,26 @@ useEffect(() => {
               />
             ))}
           </div>
+            <div className="flex justify-center items-center gap-4 mt-4">
+        <button
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          disabled={page === 0}
+          className="px-3 py-1 rounded bg-gray-100 text-gray-600 disabled:opacity-50"
+        >
+          Prev
+        </button>
+        <span>
+          Page {page + 1} / {totalPages}
+        </span>
+        <button
+          onClick={() => setPage((p) => (p < totalPages - 1 ? p + 1 : p))}
+          disabled={page >= totalPages - 1}
+          className="px-3 py-1 rounded bg-gray-100 text-gray-600 disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
+          </>
         )}
       </div>
 
