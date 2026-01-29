@@ -51,12 +51,11 @@ const BannerFormModal = ({ isOpen, onClose, onSave, bannerToEdit, triggerSuccess
 
   const [errors, setErrors] = useState({});
   const [bannerImages, setBannerImages] = useState([]);
-  const [existingImages, setExistingImages] = useState(
-    bannerToEdit?.imageUrls?.map((url, index) => ({ id: index, imageUrl: url })) || []
-  );
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
+  const [deleteImageKeys, setDeleteImageKeys] = useState([]); // New state to track deleted keys
+  const [existingImages, setExistingImages] = useState([]);
   
 
   useEffect(() => {
@@ -65,7 +64,7 @@ const BannerFormModal = ({ isOpen, onClose, onSave, bannerToEdit, triggerSuccess
     }
   }, [isOpen]);
 
-  useEffect(() => {
+useEffect(() => {
     if (bannerToEdit) {
       setFormData({
         title: bannerToEdit.title || '',
@@ -73,9 +72,9 @@ const BannerFormModal = ({ isOpen, onClose, onSave, bannerToEdit, triggerSuccess
         priority: bannerToEdit.priority || '',
         redirectUrl: bannerToEdit.redirectUrl || '',
       });
-      setExistingImages(
-        bannerToEdit.imageUrls?.map((url, index) => ({ id: index, imageUrl: url })) || []
-      );
+      // Backend nunchi vache Objects ni save chestunnam
+      setExistingImages(bannerToEdit.imageUrls || []);
+      setDeleteImageKeys([]); // Reset delete list on edit
     }
   }, [bannerToEdit]);
 
@@ -95,11 +94,15 @@ const BannerFormModal = ({ isOpen, onClose, onSave, bannerToEdit, triggerSuccess
     if (errors.images) setErrors(prev => ({ ...prev, images: null }));
   };
 
-  const removeCurrentImage = () => {
+const removeCurrentImage = () => {
     const totalExisting = existingImages.length;
     
     if (currentImageIdx < totalExisting) {
+      const imageToDelete = existingImages[currentImageIdx];
+      // Track the key to delete from S3/Backend
+      setDeleteImageKeys(prev => [...prev, imageToDelete.key]);
       setExistingImages((prev) => prev.filter((_, idx) => idx !== currentImageIdx));
+      
       if (currentImageIdx >= existingImages.length - 1 && currentImageIdx > 0) {
         setCurrentImageIdx(currentImageIdx - 1);
       }
@@ -115,12 +118,13 @@ const BannerFormModal = ({ isOpen, onClose, onSave, bannerToEdit, triggerSuccess
   const removeAllOldImages = () => {
     if (window.confirm('Are you sure you want to delete all existing images? This action cannot be undone.')) {
       setExistingImages([]);
+      setDeleteImageKeys([]); // Clear all delete keys when removing all old images
       setCurrentImageIdx(0);
     }
   };
 
-  const allImages = [
-    ...existingImages.map(img => ({ url: img.imageUrl, type: 'existing', id: img.id })),
+const allImages = [
+    ...existingImages.map(img => ({ url: img.url, type: 'existing', key: img.key })),
     ...bannerImages.map(file => ({ url: URL.createObjectURL(file), type: 'new', file }))
   ];
 
@@ -172,44 +176,60 @@ const BannerFormModal = ({ isOpen, onClose, onSave, bannerToEdit, triggerSuccess
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
+  e.preventDefault();
+  if (!validateForm()) return;
 
-    setLoading(true);
+  setLoading(true);
+  try {
+    const formDataToSend = new FormData();
 
-    try {
-      const formDataToSend = new FormData();
+    // 1. New Images (MultipartFile[])
+    if (bannerImages.length > 0) {
       bannerImages.forEach((file) => {
         formDataToSend.append('images', file);
       });
-
-      formDataToSend.append('title', formData.title);
-      if (formData.description) formDataToSend.append('description', formData.description);
-      if (formData.priority) formDataToSend.append('priority', formData.priority);
-      if (formData.redirectUrl) formDataToSend.append('redirectUrl', formData.redirectUrl);
-
-      if (bannerToEdit) {
-        await rootApi.put(`/api/admin/banners/${bannerToEdit.id}`, formDataToSend, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        triggerSuccess('Banner Updated Successfully');
-      } else {
-        await rootApi.post('/api/admin/banners/add', formDataToSend, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        triggerSuccess('Banner Created Successfully');
-      }
-
-      onSave();
-      handleClose();
-    } catch (error) {
-      console.error('Error saving banner:', error);
-      alert(`Failed to ${bannerToEdit ? 'update' : 'create'} banner. Please try again.`);
-    } finally {
-      setLoading(false);
     }
-  };
 
+    // 2. Delete Image Keys (List<String>)
+    // Backend @RequestParam List<String> expect chestondi kabatti separate append cheyali
+    if (deleteImageKeys.length > 0) {
+      deleteImageKeys.forEach((key) => {
+        formDataToSend.append('deleteImageKeys', key);
+      });
+    }
+
+    // 3. Other Fields
+    formDataToSend.append('title', formData.title);
+    formDataToSend.append('description', formData.description || '');
+    formDataToSend.append('redirectUrl', formData.redirectUrl || '');
+
+    // 4. API Call
+    const url = bannerToEdit 
+      ? `/api/admin/banners/${bannerToEdit.id}` 
+      : '/api/admin/banners/add';
+
+    const method = bannerToEdit ? 'put' : 'post';
+
+    // Axios automatic ga headers set chestundi if we pass FormData correctly
+    await rootApi({
+      method: method,
+      url: url,
+      data: formDataToSend,
+      headers: {
+        'Content-Type': 'multipart/form-data', // Explicit ga specify cheyadam better
+      },
+    });
+
+    triggerSuccess(bannerToEdit ? 'Banner Updated Successfully' : 'Banner Created Successfully');
+    onSave();
+    handleClose();
+  } catch (error) {
+    console.error('Error saving banner:', error.response?.data || error.message);
+    alert(error.response?.data?.message || 'Something went wrong while saving');
+  } finally {
+    setLoading(false);
+  }
+};
   const handleClose = () => {
     setFormData({ title: '', description: '', priority: '', redirectUrl: '' });
     setBannerImages([]);
@@ -337,37 +357,34 @@ const BannerCard = ({ banner, onEdit, onDelete }) => {
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
 
   // Auto scroll logic - 3 Seconds
-  useEffect(() => {
+useEffect(() => {
     if (!banner.imageUrls || banner.imageUrls.length <= 1) return;
-    
     const interval = setInterval(() => {
       setCurrentImgIndex((prev) => (prev + 1) % banner.imageUrls.length);
     }, 3000);
-
     return () => clearInterval(interval);
   }, [banner.imageUrls]);
-
-  const hasImages = banner.imageUrls && banner.imageUrls.length > 0;
+const hasImages = banner.imageUrls && banner.imageUrls.length > 0; 
   
   return (
     <div className="relative group rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 h-80 md:h-96">
        {/* Background Image Carousel - Full Layout */}
        <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-400">
-          {hasImages ? (
-            banner.imageUrls.map((img, idx) => (
+         {hasImages ? (
+            banner.imageUrls.map((imgObj, idx) => (
               <img
                 key={idx}
-                src={img}
+                src={imgObj.url} // .url property ni use chestunnam
                 alt={banner.title}
-                className={`absolute inset-0 w-full h-full object-cover transition-all duration-1000 ease-in-out ${
-                   idx === currentImgIndex ? 'opacity-100 scale-100' : 'opacity-0 scale-110'
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+                   idx === currentImgIndex ? 'opacity-100' : 'opacity-0'
                 }`}
               />
             ))
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
                <ImageIcon size={64} />
-               <span className="text-sm font-semibold mt-3">No Image</span>
+               <span>No Image</span>
             </div>
           )}
        </div>

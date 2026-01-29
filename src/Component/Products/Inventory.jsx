@@ -189,7 +189,7 @@ const fetchBranches = async () => {
                   errors.productId ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-500'
                 }`}
               >
-                <option value="">Select a product</option>
+                <option>Select a product</option>
                 {products.map(product => (
                   <option key={product.id} value={product.id}>
                     {product.productName} - {product.brand}
@@ -212,7 +212,7 @@ const fetchBranches = async () => {
                   errors.branchId ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:ring-blue-500'
                 }`}
               >
-                <option value="">Select a branch</option>
+                <option>Select a branch</option>
                 {branches.map(branch => (
                   <option key={branch.id} value={branch.id}>
                     {branch.branchName} ({branch.branchCode}) - {branch.location}
@@ -441,7 +441,7 @@ useEffect(() => {
     onChange={(e) => setSelectedProductFilter(e.target.value)}
     className="flex-1 max-w-md p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
   >
-    <option value="">Select a product</option>
+    <option>Select a product</option>
     <option value="ALL">All Products</option>
     {productsList.map(product => (
       <option key={product.id} value={product.id}>
