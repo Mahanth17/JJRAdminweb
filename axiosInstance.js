@@ -69,6 +69,6 @@ export const createAxiosInstance = (baseURL) => {
 };
 
 // --- Export API instances ---
-export const rootApi = createAxiosInstance("http://192.168.0.117:8080");
-export const categoryApi = createAxiosInstance("http://192.168.0.117:8080");
-export const orderApi = createAxiosInstance("http://192.168.0.117:8080");
+export const rootApi = createAxiosInstance("http://192.168.0.122:8080");
+export const categoryApi = createAxiosInstance("http://192.168.0.122:8080");
+export const orderApi = createAxiosInstance("http://192.168.0.122:8080");

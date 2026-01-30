@@ -64,7 +64,7 @@ export default function Loginpage({ onLoginSuccess })  {
   setLoading(true);
   
   try {
-    const response = await fetch("http://192.168.0.144:8082/api/auth/admin/login", {
+    const response = await fetch("http://192.168.0.122:8080/api/auth/admin/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

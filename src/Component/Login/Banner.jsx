@@ -153,7 +153,7 @@ const allImages = [
     }
 
     if (formData.redirectUrl && !isValidUrl(formData.redirectUrl)) {
-      newErrors.redirectUrl = "Please enter a valid URL";
+      newErrors.redirectUrl = "URL validation failed: Please enter a valid URL (https://...)";
       isValid = false;
     }
 
